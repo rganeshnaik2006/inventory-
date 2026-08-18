@@ -1,0 +1,8 @@
+{
+  "name": "Smart Warehouse Operations & Order Fulfillment System",
+  "description": "Enterprise-grade intelligent warehouse management, inventory allocation engine, picking/packing workflow, exception handling, and AI-powered operational decision hub.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
