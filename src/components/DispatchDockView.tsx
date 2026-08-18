@@ -252,7 +252,7 @@ export const DispatchDockView: React.FC = () => {
                       <tr key={idx} className="border-b border-slate-200">
                         <td className="py-1 px-1 font-mono font-bold">{o.orderNumber}</td>
                         <td className="py-1 px-1">{o.customerName}</td>
-                        <td className="py-1 px-1">{o.items.length} Box(es)</td>
+                        <td className="py-1 px-1">{(o.items || []).length} Box(es)</td>
                         <td className="py-1 px-1 text-right font-mono">{o.totalWeightKg}</td>
                       </tr>
                     ))}

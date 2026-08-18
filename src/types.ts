@@ -231,7 +231,16 @@ export interface SimulationScenario {
   actionRequired: string;
 }
 
-export type UserRole = 'shift_supervisor' | 'inventory_lead' | 'picker_packer' | 'logistics_officer' | 'system_admin';
+export type UserRole =
+  | 'warehouse_manager'
+  | 'inventory_manager'
+  | 'picker'
+  | 'operations_analyst'
+  | 'shift_supervisor'
+  | 'inventory_lead'
+  | 'picker_packer'
+  | 'logistics_officer'
+  | 'system_admin';
 
 export interface UserAccount {
   id: string;
@@ -245,4 +254,183 @@ export interface UserAccount {
   avatarUrl?: string;
   clearanceLevel: 'Tier-1 Floor' | 'Tier-2 Specialist' | 'Tier-3 Supervisor' | 'Tier-4 Root Admin';
   lastLogin?: string;
+}
+
+// -------------------------------------------------------------
+// Enterprise AI Upgrade Types
+// -------------------------------------------------------------
+
+export interface DemandForecastPoint {
+  date: string;
+  historicalDemand?: number;
+  predictedDemand: number;
+  lowerConfidence?: number;
+  upperConfidence?: number;
+}
+
+export interface ProductDemandForecast {
+  sku: string;
+  productName: string;
+  category: string;
+  currentStock: number;
+  forecast7d: number;
+  forecast30d: number;
+  forecast90d: number;
+  stockoutRisk: 'Low' | 'Moderate' | 'High' | 'Critical';
+  recommendedReorderQty: number;
+  confidenceScore: number; // 0 - 100
+  trendDirection: 'rising' | 'stable' | 'declining';
+  datapoints7d: DemandForecastPoint[];
+  datapoints30d: DemandForecastPoint[];
+  datapoints90d: DemandForecastPoint[];
+}
+
+export type ReorderPriority = 'Critical' | 'High' | 'Medium' | 'Low';
+export type ReorderStatus = 'pending_review' | 'approved' | 'dismissed' | 'ordered';
+
+export interface SmartReorderItem {
+  id: string;
+  sku: string;
+  productName: string;
+  category: string;
+  currentStock: number;
+  reservedStock: number;
+  incomingStock: number;
+  pendingOrdersCount: number;
+  predictedDemand30d: number;
+  reorderPoint: number;
+  recommendedReorderQty: number;
+  priority: ReorderPriority;
+  recommendedAction: string;
+  reasoning: string;
+  leadTimeDays: number;
+  supplier: string;
+  unitPrice: number;
+  estimatedCost: number;
+  status: ReorderStatus;
+  reviewedAt?: string;
+  approvedBy?: string;
+}
+
+export type AnomalySeverity = 'critical' | 'warning' | 'info';
+
+export interface InventoryAnomaly {
+  id: string;
+  sku: string;
+  productName: string;
+  category: string;
+  severity: AnomalySeverity;
+  patternType:
+    | 'sudden_inventory_decrease'
+    | 'unusual_demand_spike'
+    | 'unexpected_low_sales'
+    | 'overstock_accumulation'
+    | 'repeated_inventory_mismatch'
+    | 'unusual_cancellation_pattern';
+  detectedPattern: string;
+  possibleExplanation: string;
+  recommendedAction: string;
+  detectedAt: string;
+  metricChange: string;
+  isResolved?: boolean;
+}
+
+export type AlertSeverity = 'critical' | 'warning' | 'info';
+export type AlertCategory =
+  | 'stockout_risk'
+  | 'low_inventory'
+  | 'demand_spike'
+  | 'delayed_fulfillment'
+  | 'picking_bottleneck'
+  | 'overstock'
+  | 'supplier_delay'
+  | 'unusual_inventory_movement';
+
+export interface WarehouseAlert {
+  id: string;
+  title: string;
+  category: AlertCategory;
+  severity: AlertSeverity;
+  timestamp: string;
+  affectedEntity: string;
+  explanation: string;
+  recommendedAction: string;
+  isRead: boolean;
+  isResolved: boolean;
+  metricImpact?: string;
+  orderOrSkuId?: string;
+}
+
+export interface OptimizedPickStep {
+  stepNumber: number;
+  binCode: string;
+  zone: string;
+  aisle: number;
+  x: number;
+  y: number;
+  sku: string;
+  productName: string;
+  orderNumber: string;
+  customerTier: CustomerTier;
+  quantity: number;
+  weightKg: number;
+  status: 'pending' | 'in_transit' | 'picked';
+  distanceFromPreviousMeters: number;
+}
+
+export interface OptimizedPickRoute {
+  routeId: string;
+  title: string;
+  zone: string;
+  pickerId: string;
+  pickerName: string;
+  orderIds: string[];
+  totalSteps: number;
+  completedSteps: number;
+  estimatedTotalMinutes: number;
+  elapsedMinutes: number;
+  totalDistanceMeters: number;
+  steps: OptimizedPickStep[];
+  batchStrategy: 'Wave Consolidation' | 'Zone Cluster' | 'VIP Expedited';
+}
+
+export interface WhatIfScenarioResult {
+  scenarioTitle: string;
+  appliedModifiers: {
+    demandChangePct: number;
+    newIncomingOrdersCount: number;
+    supplierDelayDays: number;
+    deadlineBufferMinutes: number;
+  };
+  impactSummary: string;
+  affectedProductsCount: number;
+  projectedStockoutProducts: {
+    sku: string;
+    productName: string;
+    projectedStockoutDay: number;
+    additionalQtyNeeded: number;
+    severity: 'Critical' | 'High' | 'Moderate';
+  }[];
+  projectedSlaImpactPct: number;
+  additionalUnitsRequired: number;
+  estimatedAdditionalCost: number;
+  operationalRecommendations: string[];
+}
+
+export interface WarehouseReport {
+  id: string;
+  type:
+    | 'daily_warehouse_report'
+    | 'inventory_health_report'
+    | 'order_fulfillment_report'
+    | 'stock_risk_report'
+    | 'demand_forecast_report';
+  title: string;
+  generatedAt: string;
+  generatedBy: string;
+  period: string;
+  executiveSummary: string;
+  kpis: { label: string; value: string; trend?: string; isPositive?: boolean }[];
+  keyFindings: string[];
+  recommendedActionItems: { priority: 'High' | 'Medium' | 'Low'; action: string; owner: string }[];
 }

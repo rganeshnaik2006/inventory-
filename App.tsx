@@ -9,6 +9,13 @@ import { InventoryView } from './src/components/InventoryView';
 import { PickerPackerStationView } from './src/components/PickerPackerStationView';
 import { DispatchDockView } from './src/components/DispatchDockView';
 import { AICopilotDrawer } from './src/components/AICopilotDrawer';
+import { DemandForecastView } from './src/components/DemandForecastView';
+import { SmartReorderView } from './src/components/SmartReorderView';
+import { PickingOptimizationView } from './src/components/PickingOptimizationView';
+import { AnomalyDetectionView } from './src/components/AnomalyDetectionView';
+import { WhatIfSimulatorView } from './src/components/WhatIfSimulatorView';
+import { AlertCenterView } from './src/components/AlertCenterView';
+import { ReportsCenterView } from './src/components/ReportsCenterView';
 import { AuthModalOrPage } from './src/components/AuthModalOrPage';
 import {
   CheckCircle2,
@@ -75,13 +82,20 @@ const WarehouseMainApp: React.FC = () => {
       {currentUser && (
         <main className="flex-1 px-4 lg:px-6 py-6 max-w-7xl w-full mx-auto">
           {activeTab === 'command' && <CommandCenterView />}
-          {activeTab === 'floorplan' && <FloorPlanView />}
           {activeTab === 'orders' && <OrderManagerView />}
-          {activeTab === 'simulator' && <DecisionSimulatorView />}
+          {activeTab === 'copilot' && <AICopilotDrawer />}
+          {activeTab === 'forecast' && <DemandForecastView />}
+          {activeTab === 'reorder' && <SmartReorderView />}
+          {activeTab === 'picking_opt' && <PickingOptimizationView />}
+          {activeTab === 'anomalies' && <AnomalyDetectionView />}
+          {activeTab === 'what_if' && <WhatIfSimulatorView />}
+          {activeTab === 'alerts' && <AlertCenterView />}
+          {activeTab === 'reports' && <ReportsCenterView />}
+          {activeTab === 'floorplan' && <FloorPlanView />}
           {activeTab === 'inventory' && <InventoryView />}
           {activeTab === 'picker_packer' && <PickerPackerStationView />}
           {activeTab === 'dispatch' && <DispatchDockView />}
-          {activeTab === 'copilot' && <AICopilotDrawer />}
+          {activeTab === 'simulator' && <DecisionSimulatorView />}
         </main>
       )}
 

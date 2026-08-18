@@ -19,6 +19,13 @@ import {
   ChevronDown,
   UserPlus,
   Check,
+  TrendingUp,
+  RefreshCw,
+  Navigation,
+  ShieldAlert,
+  FlaskConical,
+  Bell,
+  FileText,
 } from 'lucide-react';
 import { useWarehouse, ActiveTab } from '../context/WarehouseContext';
 
@@ -38,6 +45,9 @@ export const Header: React.FC = () => {
     switchUser,
     lockTerminal,
     setAuthModalView,
+    alerts,
+    smartReorders,
+    anomalies,
   } = useWarehouse();
 
   const [currentTime, setCurrentTime] = useState<string>('');
@@ -72,19 +82,26 @@ export const Header: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const criticalExceptionsCount = orders.filter(
+  const criticalExceptionsCount = (orders || []).filter(
     (o) => o.exception?.severity === 'critical' || o.status === 'exception_held'
   ).length;
 
-  const navItems: { id: ActiveTab; label: string; icon: any; badge?: number }[] = [
+  const navItems: { id: ActiveTab; label: string; icon: any; badge?: number; group?: string }[] = [
     { id: 'command', label: 'Command Center', icon: Activity },
-    { id: 'floorplan', label: 'Floor Plan & Heatmap', icon: Layers },
-    { id: 'orders', label: 'Orders & Allocation', icon: Boxes, badge: orders.filter(o => o.status === 'prioritizing' || o.status === 'created').length },
-    { id: 'simulator', label: 'Decision Simulator', icon: Sparkles },
-    { id: 'inventory', label: 'Inventory & Stock', icon: Layers },
-    { id: 'picker_packer', label: 'Pick & Pack Stations', icon: Boxes },
-    { id: 'dispatch', label: 'Docks & Dispatch', icon: Radio },
+    { id: 'orders', label: 'Orders & Priority', icon: Boxes, badge: (orders || []).filter(o => o.status === 'prioritizing' || o.status === 'created').length },
     { id: 'copilot', label: 'AI Copilot', icon: Bot },
+    { id: 'forecast', label: 'AI Demand Forecast', icon: TrendingUp },
+    { id: 'reorder', label: 'Smart Reorders', icon: RefreshCw, badge: (smartReorders || []).filter(r => r.status === 'pending_review').length },
+    { id: 'picking_opt', label: 'Picking Sequence', icon: Navigation },
+    { id: 'anomalies', label: 'Stock Anomalies', icon: ShieldAlert, badge: (anomalies || []).filter(a => !a.isResolved).length },
+    { id: 'what_if', label: 'What-If Simulator', icon: FlaskConical },
+    { id: 'simulator', label: 'Stress-Test Lab', icon: Sparkles },
+    { id: 'alerts', label: 'Alert Center', icon: Bell, badge: (alerts || []).filter(a => !a.isResolved).length },
+    { id: 'reports', label: 'Reports & Briefs', icon: FileText },
+    { id: 'floorplan', label: 'Floorplan & Heatmap', icon: Layers },
+    { id: 'inventory', label: 'Inventory & Stock', icon: Layers },
+    { id: 'picker_packer', label: 'Pick & Pack', icon: Boxes },
+    { id: 'dispatch', label: 'Docks & Dispatch', icon: Radio },
   ];
 
   return (

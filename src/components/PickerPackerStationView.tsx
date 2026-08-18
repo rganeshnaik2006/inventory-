@@ -125,7 +125,7 @@ export const PickerPackerStationView: React.FC = () => {
                     <div className="mt-2 pt-2 border-t border-slate-800/80 flex justify-between text-[11px] text-slate-400">
                       <span>Picker: {w.pickerName}</span>
                       <span className="font-mono text-cyan-300 font-bold">
-                        {w.pickedCount} / {w.pathNodes.length} Picked
+                        {w.pickedCount} / {(w.pathNodes || []).length} Picked
                       </span>
                     </div>
                   </div>
@@ -165,7 +165,7 @@ export const PickerPackerStationView: React.FC = () => {
                 <p className="text-xs text-slate-400">Follow the path step-by-step. Scan items to confirm.</p>
               </div>
               <span className="font-mono text-xs text-emerald-400 font-bold">
-                {activeWave?.pathNodes.filter((n) => n.picked).length} / {activeWave?.pathNodes.length} Items Picked
+                {(activeWave?.pathNodes || []).filter((n) => n.picked).length} / {(activeWave?.pathNodes || []).length} Items Picked
               </span>
             </div>
 

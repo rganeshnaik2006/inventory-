@@ -28,17 +28,41 @@ import {
   SIMULATION_SCENARIOS,
   INITIAL_USERS,
 } from '../data/initialData';
+import {
+  INITIAL_DEMAND_FORECASTS,
+  INITIAL_SMART_REORDERS,
+  INITIAL_ANOMALIES,
+  INITIAL_ALERTS,
+  INITIAL_OPTIMIZED_ROUTE,
+  INITIAL_REPORTS,
+} from '../data/aiEnterpriseData';
+import {
+  ProductDemandForecast,
+  SmartReorderItem,
+  InventoryAnomaly,
+  WarehouseAlert,
+  OptimizedPickRoute,
+  WarehouseReport,
+  WhatIfScenarioResult,
+} from '../types';
 import { warehouseSound } from '../utils/audioFeedback';
 
 export type ActiveTab =
   | 'command'
   | 'floorplan'
   | 'orders'
-  | 'simulator'
+  | 'copilot'
+  | 'forecast'
+  | 'reorder'
+  | 'picking_opt'
+  | 'anomalies'
+  | 'what_if'
+  | 'alerts'
+  | 'reports'
   | 'inventory'
   | 'picker_packer'
   | 'dispatch'
-  | 'copilot';
+  | 'simulator';
 
 export type AuthModalView = 'none' | 'login' | 'signup' | 'forgot';
 
@@ -114,6 +138,27 @@ interface WarehouseContextType {
   }) => void;
   systemNotification: { text: string; type: 'success' | 'warning' | 'info' | 'error' } | null;
   clearNotification: () => void;
+
+  // Enterprise AI Features State & Actions
+  demandForecasts: ProductDemandForecast[];
+  smartReorders: SmartReorderItem[];
+  anomalies: InventoryAnomaly[];
+  alerts: WarehouseAlert[];
+  optimizedRoute: OptimizedPickRoute;
+  reports: WarehouseReport[];
+  approveReorder: (id: string) => void;
+  dismissReorder: (id: string) => void;
+  resolveAnomaly: (id: string) => void;
+  markAlertRead: (id: string) => void;
+  resolveAlert: (id: string) => void;
+  completePickStep: (stepNumber: number) => void;
+  addReport: (report: WarehouseReport) => void;
+  runWhatIfSimulation: (params: {
+    demandChangePct: number;
+    newIncomingOrdersCount: number;
+    supplierDelayDays: number;
+    deadlineBufferMinutes: number;
+  }) => WhatIfScenarioResult;
 }
 
 const WarehouseContext = createContext<WarehouseContextType | undefined>(undefined);
@@ -247,6 +292,10 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     const roleTitleMap: Record<UserRole, string> = {
+      warehouse_manager: 'General Warehouse Manager',
+      inventory_manager: 'Inventory Planning Lead',
+      picker: 'Floor Order Picker',
+      operations_analyst: 'Operations Data Analyst',
       shift_supervisor: 'Shift Operations Supervisor',
       inventory_lead: 'Inventory & ATP Specialist',
       picker_packer: 'Wave Fulfillment & Pack Specialist',
@@ -1143,6 +1192,132 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     showNotification(`Order ${orderNum} created! Prioritized at rank ${score}/100.`, 'success');
   };
 
+  // Enterprise AI States
+  const [demandForecasts, setDemandForecasts] = useState<ProductDemandForecast[]>(INITIAL_DEMAND_FORECASTS);
+  const [smartReorders, setSmartReorders] = useState<SmartReorderItem[]>(INITIAL_SMART_REORDERS);
+  const [anomalies, setAnomalies] = useState<InventoryAnomaly[]>(INITIAL_ANOMALIES);
+  const [alerts, setAlerts] = useState<WarehouseAlert[]>(INITIAL_ALERTS);
+  const [optimizedRoute, setOptimizedRoute] = useState<OptimizedPickRoute>(INITIAL_OPTIMIZED_ROUTE);
+  const [reports, setReports] = useState<WarehouseReport[]>(INITIAL_REPORTS);
+
+  const approveReorder = (id: string) => {
+    setSmartReorders((prev) =>
+      prev.map((item) => {
+        if (item.id === id) {
+          triggerSupplierPO(item.sku, item.recommendedReorderQty);
+          return {
+            ...item,
+            status: 'approved' as const,
+            reviewedAt: `Today, ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+            approvedBy: currentUser?.name || 'Operator',
+          };
+        }
+        return item;
+      })
+    );
+    showNotification(`Reorder approved! Purchase Order generated and sent to supplier EDI.`, 'success');
+  };
+
+  const dismissReorder = (id: string) => {
+    setSmartReorders((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, status: 'dismissed' as const } : item))
+    );
+    showNotification(`Reorder recommendation dismissed.`, 'info');
+  };
+
+  const resolveAnomaly = (id: string) => {
+    setAnomalies((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, isResolved: true } : item))
+    );
+    showNotification(`Anomaly marked as resolved after cycle inspection.`, 'success');
+  };
+
+  const markAlertRead = (id: string) => {
+    setAlerts((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, isRead: true } : item))
+    );
+  };
+
+  const resolveAlert = (id: string) => {
+    setAlerts((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, isResolved: true, isRead: true } : item))
+    );
+    showNotification(`Operational alert marked as resolved.`, 'success');
+  };
+
+  const completePickStep = (stepNumber: number) => {
+    setOptimizedRoute((prev) => {
+      const updatedSteps = prev.steps.map((st) => {
+        if (st.stepNumber === stepNumber) {
+          return { ...st, status: 'picked' as const };
+        }
+        if (st.stepNumber === stepNumber + 1) {
+          return { ...st, status: 'in_transit' as const };
+        }
+        return st;
+      });
+      const completedCount = updatedSteps.filter((s) => s.status === 'picked').length;
+      return {
+        ...prev,
+        steps: updatedSteps,
+        completedSteps: completedCount,
+      };
+    });
+    showNotification(`Pick Step #${stepNumber} completed! Location scan confirmed.`, 'success');
+  };
+
+  const addReport = (report: WarehouseReport) => {
+    setReports((prev) => [report, ...prev]);
+    showNotification(`New report "${report.title}" generated successfully!`, 'success');
+  };
+
+  const runWhatIfSimulation = (params: {
+    demandChangePct: number;
+    newIncomingOrdersCount: number;
+    supplierDelayDays: number;
+    deadlineBufferMinutes: number;
+  }): WhatIfScenarioResult => {
+    const demandMultiplier = 1 + params.demandChangePct / 100;
+    const projectedStockoutProducts = products
+      .map((p) => {
+        const adjusted30dDemand = Math.round((p.reorderQuantity * 1.5) * demandMultiplier + params.newIncomingOrdersCount * 0.4);
+        const dailyBurnRate = adjusted30dDemand / 30;
+        const effectiveLeadTime = p.leadTimeDays + params.supplierDelayDays;
+        const stockCoverageDays = p.availableToPromise / (dailyBurnRate || 1);
+        const isStockout = stockCoverageDays < effectiveLeadTime || p.availableToPromise <= 5;
+        const additionalNeeded = isStockout ? Math.ceil((effectiveLeadTime - stockCoverageDays) * dailyBurnRate + p.safetyStockThreshold) : 0;
+        
+        return {
+          sku: p.sku,
+          productName: p.name,
+          projectedStockoutDay: Math.max(1, Math.round(stockCoverageDays)),
+          additionalQtyNeeded: additionalNeeded,
+          severity: (stockCoverageDays < 2 ? 'Critical' : stockCoverageDays < 5 ? 'High' : 'Moderate') as 'Critical' | 'High' | 'Moderate',
+        };
+      })
+      .filter((p) => p.additionalQtyNeeded > 0);
+
+    const additionalUnitsRequired = projectedStockoutProducts.reduce((acc, cur) => acc + cur.additionalQtyNeeded, 0);
+    const estimatedAdditionalCost = additionalUnitsRequired * 180;
+    const projectedSlaImpactPct = Math.max(70, Math.round(98.6 - (params.demandChangePct > 0 ? params.demandChangePct * 0.25 : 0) - params.supplierDelayDays * 2.2 - (params.newIncomingOrdersCount * 0.1)));
+
+    return {
+      scenarioTitle: `Simulation: ${params.demandChangePct >= 0 ? '+' : ''}${params.demandChangePct}% Demand, +${params.newIncomingOrdersCount} Orders, +${params.supplierDelayDays}d Delay`,
+      appliedModifiers: params,
+      impactSummary: `${projectedStockoutProducts.length} products projected to experience stockouts under this operational stress scenario. SLA compliance estimated at ${projectedSlaImpactPct}%.`,
+      affectedProductsCount: projectedStockoutProducts.length,
+      projectedStockoutProducts,
+      projectedSlaImpactPct,
+      additionalUnitsRequired,
+      estimatedAdditionalCost,
+      operationalRecommendations: [
+        `Issue early advance purchase orders for ${additionalUnitsRequired} units across affected SKUs.`,
+        `Pre-allocate auxiliary staging buffers in Zone A and D to absorb order surges.`,
+        params.supplierDelayDays > 0 ? `Activate secondary supplier sourcing agreements for cryogenic and battery lines.` : `Increase wave batching density by 20% to handle order inflow without adding pick headcount.`,
+      ],
+    };
+  };
+
   return (
     <WarehouseContext.Provider
       value={{
@@ -1190,6 +1365,20 @@ export const WarehouseProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         createNewOrder,
         systemNotification,
         clearNotification,
+        demandForecasts,
+        smartReorders,
+        anomalies,
+        alerts,
+        optimizedRoute,
+        reports,
+        approveReorder,
+        dismissReorder,
+        resolveAnomaly,
+        markAlertRead,
+        resolveAlert,
+        completePickStep,
+        addReport,
+        runWhatIfSimulation,
       }}
     >
       {children}
